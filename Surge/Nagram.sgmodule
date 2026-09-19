@@ -1,0 +1,13 @@
+#!name=Telegram跳转Nagram
+#!desc=Telegram外部链接跳转至Nagram
+#!category=Telegram
+#!openUrl=https://apps.apple.com/cn/app/nagram/id6781000861
+
+# 跳转目标用 tg://：Nagram 的 Info.plist 里硬编码注册了 telegram:// tg:// ton://。
+# 若机上另有客户端抢走了 tg:// 的所有权，把 tg:// 换成 Nagram 独有 scheme 即可（其余不动）。
+
+[URL Rewrite]
+^https?://t\.me/(.+) tg://resolve?domain=$1 302
+
+[MITM]
+hostname = %APPEND% t.me
