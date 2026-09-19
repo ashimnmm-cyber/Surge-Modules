@@ -2,7 +2,7 @@
 #!desc=将 t.me 链接重定向到你选择的 Telegram 客户端
 #!category=Telegram
 #!arguments=CLIENT:Nagram
-#!arguments-desc=客户端名（大小写不敏感）：Telegram 放行不跳转 / Nagram / Swiftgram / Turrit / iMe / Nicegram / Lingogram。也可直接填一个 URL Scheme，例如 sg。
+#!arguments-desc=客户端名，大小写不敏感、可只打前缀：te=Telegram(放行) na=Nagram sw=Swiftgram tu=Turrit i=iMe ni=Nicegram li=Lingogram。也可直接填 URL Scheme（如 sg）。前缀有歧义时按 Nagram。
 
 [Script]
 telegram-redirect = type=http-request,pattern=^https?://(t\.me|telegram\.me)/,script-path=https://raw.githubusercontent.com/ashimnmm-cyber/Surge-Modules/main/Script/TelegramRedirect.js,argument="{{{CLIENT}}}",timeout=10
