@@ -1,7 +1,7 @@
 #!name=Telegram 跳转
 #!desc=将 t.me 链接重定向到你选择的 Telegram 客户端
 #!category=Telegram
-#!arguments=CLIENT:Nagram
+#!arguments=CLIENT:na
 #!arguments-desc=客户端名，大小写不敏感、可只打前缀：te=Telegram(放行) na=Nagram sw=Swiftgram tu=Turrit i=iMe ni=Nicegram li=Lingogram。也可直接填 URL Scheme（如 sg）。前缀有歧义时按 Nagram。
 
 [Script]
