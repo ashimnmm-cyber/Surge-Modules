@@ -37,8 +37,8 @@ function run() {
   const raw = (typeof $argument === "string" ? $argument : "").replace(/^"+|"+$/g, "").trim();
   if (!raw || raw.toLowerCase() === "telegram") return {};
 
-  const scheme =
-    SCHEME[raw.toLowerCase()] || (/^[a-z][a-z0-9+.-]*$/.test(raw) ? raw : SCHEME.nagram);
+  const key = raw.toLowerCase();
+  const scheme = SCHEME[key] || (/^[a-z][a-z0-9+.-]*$/.test(key) ? key : SCHEME.nagram);
 
   let tail = m[1];
   if (tail.indexOf("s/") === 0) tail = tail.slice(2);
