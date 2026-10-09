@@ -152,13 +152,17 @@ let content = ''
       if (entranceDelay) {
         await $.wait(1000 * entranceDelay)
       }
-      let [{ CN_INFO: ENTRANCE_INFO1 = '', isCN = false } = {}] = await Promise.all([
-        getDirectInfo(ENTRANCE_IP, $.lodash_get(arg, 'DOMESTIC_IPv4')),
-      ])
-      // ⚠ 本地补丁(2026-10-09)：作者原本还要用 LANDING_IPv4(ip.sb) 把**同一个入口 IP** 再查一遍，
-      //   目的是防"国内接口把国外 IP 解析离谱"。但我们的入口永远是腾讯云成都(国内 IP)，
-      //   第二遍只会多出 位置²/运营商²/组织²/ASN² 四行重复信息，所以直接停掉。
-      //   要恢复：把下面这行删掉、并还原上面 Promise.all 里的 getProxyInfo(ENTRANCE_IP, LANDING_IPv4)。
+      let [{ CN_INFO: ENTRANCE_INFO1 = '', isCN = false } = {}, { PROXY_INFO: ENTRANCE_FULL = '' } = {}] =
+        await Promise.all([
+          getDirectInfo(ENTRANCE_IP, $.lodash_get(arg, 'DOMESTIC_IPv4')),
+          getProxyInfo(ENTRANCE_IP, $.lodash_get(arg, 'LANDING_IPv4')),
+        ])
+      // ⚠ 本地补丁(2026-10-09)：作者把同一个入口 IP 用 ip.sb 又查了一遍，多出 位置²/运营商²/组织²/ASN² 四行，
+      //   而国内源 spcn 已经给了入口的位置和运营商，那三行纯属重复。这里只从第二遍里挑出 **ASN 一行**保留
+      //   （国内源拿不到 ASN），其余丢掉。依赖参数 ASN=1（本副本默认就是 1），否则这行不会出现。
+      const ENTRANCE_ASN = String(ENTRANCE_FULL || '')
+        .split('\n')
+        .find(s => /^ASN:/.test(s.trim()))
       const ENTRANCE_INFO2 = ''
       // 国内接口的国外 IP 解析过于离谱 排除掉
       if (ENTRANCE_INFO1 && isCN) {
@@ -173,6 +177,7 @@ let content = ''
           ENTRANCE = `入口: ${maskIP(ENTRANCE_IP) || '-'}\n${maskAddr(ENTRANCE_INFO2)}`
         }
       }
+      if (ENTRANCE && ENTRANCE_ASN) ENTRANCE = `${ENTRANCE}\n${ENTRANCE_ASN.trim()}`
     }
     if (ENTRANCE) {
       ENTRANCE = `${ENTRANCE}\n\n`
@@ -934,7 +939,7 @@ async function getProxyInfo(ip, provider) {
       PROXY_IP = ip || $.lodash_get(body, 'ip')
       // ⚠ 本地补丁(2026-10-09)：按 ASN 覆盖显示名。ip.sb 对 AS4760 拿零售品牌 "Netvigator Home Broadband" 糊，
       //   而 HKT 落地是动态 IP、每天凌晨换，只有 ASN 是恒定的，所以用 ASN 当键而不是匹配字符串。
-      const ISP_LABEL = ({ '4760': 'PCCW / HKT' })[String(body.asn || '')] || body.isp || body.organization || ''
+      const ISP_LABEL = ({ '4760': 'Pacific Century CyberWorks' })[String(body.asn || '')] || body.isp || body.organization || ''
       const ORG_LABEL = $.lodash_get(body, 'asn_organization') || ''
       PROXY_INFO = [
         [
