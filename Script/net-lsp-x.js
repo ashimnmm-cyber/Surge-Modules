@@ -932,6 +932,10 @@ async function getProxyInfo(ip, provider) {
         body = JSON.parse(body)
       } catch (e) {}
       PROXY_IP = ip || $.lodash_get(body, 'ip')
+      // ⚠ 本地补丁(2026-10-09)：按 ASN 覆盖显示名。ip.sb 对 AS4760 拿零售品牌 "Netvigator Home Broadband" 糊，
+      //   而 HKT 落地是动态 IP、每天凌晨换，只有 ASN 是恒定的，所以用 ASN 当键而不是匹配字符串。
+      const ISP_LABEL = ({ '4760': 'PCCW / HKT' })[String(body.asn || '')] || body.isp || body.organization || ''
+      const ORG_LABEL = $.lodash_get(body, 'asn_organization') || ''
       PROXY_INFO = [
         [
           '位置:',
@@ -941,10 +945,14 @@ async function getProxyInfo(ip, provider) {
           (() => {
             const r = $.lodash_get(body, 'region') || ''
             const c = $.lodash_get(body, 'city') || ''
+            const co = ($.lodash_get(body, 'country') || '').toLowerCase().replace(/\s/g, '')
+            const norm = s => s.toLowerCase().replace(/\s/g, '')
+            // city 只是把国名重复一遍（HK 的 city="Hong Kong"）→ 丢 city 留 region
+            if (c && co && norm(c) === co) return r
             if (!c) return r
             if (!r) return c
-            const nr = r.toLowerCase().replace(/\s/g, '')
-            const nc = c.toLowerCase().replace(/\s/g, '')
+            const nr = norm(r)
+            const nc = norm(c)
             // 相等、或互为包含（Central And Western/Central、Kwai Tsing/Kwai Tsing District）→ 只留更具体的 city
             if (nr === nc || nr.includes(nc) || nc.includes(nr)) return c
             return r + ' ' + c
@@ -953,11 +961,16 @@ async function getProxyInfo(ip, provider) {
           .filter(i => i)
           .join(' '),
 
-        // ⚠ 本地补丁(2026-10-09)：按 ASN 覆盖显示名。ip.sb 对 AS4760 拿零售品牌 "Netvigator Home Broadband" 糊，
-        //   而 HKT 落地是动态 IP、每天凌晨换，只有 ASN 是恒定的，所以用 ASN 当键而不是匹配字符串。
-        ['运营商:', ({ '4760': 'PCCW / HKT' })[String(body.asn || '')] || body.isp || body.organization].filter(i => i).join(' '),
-        $.lodash_get(arg, 'ORG') == 1
-          ? ['组织:', $.lodash_get(body, 'asn_organization') || '-'].filter(i => i).join(' ')
+        ['运营商:', ISP_LABEL].filter(i => i).join(' '),
+        // ⚠ 本地补丁：组织与运营商是同一家时不再单独占一行——含 "HKT Limited" vs "PCCW / HKT"，
+        //   也含只多一个 LIMITED 后缀的 "Lucidacloud" vs "LUCIDACLOUD LIMITED"
+        $.lodash_get(arg, 'ORG') == 1 &&
+        ORG_LABEL &&
+        !(
+          ISP_LABEL.toLowerCase().includes(ORG_LABEL.toLowerCase()) ||
+          ORG_LABEL.toLowerCase().includes(ISP_LABEL.toLowerCase())
+        )
+          ? ['组织:', ORG_LABEL].join(' ')
           : undefined,
 
         $.lodash_get(arg, 'ASN') == 1 ? ['ASN:', $.lodash_get(body, 'asn') || '-'].filter(i => i).join(' ') : undefined,
