@@ -361,11 +361,18 @@ async function getRequestInfo(regexp, PROXIES = []) {
   try {
     if ($.isSurge()) {
       const { requests } = await httpAPI('/v1/requests/recent', 'GET')
-      const request = requests.slice(0, 10).find(i => regexp.test(i.URL))
-      // $.log('recent request', $.toStr(request))
-      POLICY = request.policyName
-      if (/\(Proxy\)/.test(request.remoteAddress)) {
-        IP = request.remoteAddress.replace(/\s*\(Proxy\)\s*/, '')
+      const all = requests || []
+      // ⚠ 本地补丁(2026-10-09)：原来只取"第一条命中查询域名的记录"，再检查它带不带 (Proxy)。
+      //   但查入口那一次是**直连**发出的（getProxyInfo 传了 ip 就不走代理），所以面板每刷一次
+      //   就往最近请求里塞一条 (Direct) 的 api-ipv4.ip.sb；下次刷新 find 先撞上它，(Proxy) 检查失败
+      //   ⇒ IP 为空 ⇒ 入口那一整块不显示（直连 VPS 套落地时尤其容易碰到）。
+      //   改成优先挑那条真正走了代理的记录。
+      const request = all.slice(0, 30).find(i => regexp.test(i.URL) && /\(Proxy\)/.test(i.remoteAddress || '')) || all.slice(0, 10).find(i => regexp.test(i.URL))
+      if (request) {
+        POLICY = request.policyName
+        if (/\(Proxy\)/.test(request.remoteAddress || '')) {
+          IP = request.remoteAddress.replace(/\s*\(Proxy\)\s*/, '')
+        }
       }
     } else if ($.isStash()) {
       const res = await $.http.get({
