@@ -152,11 +152,14 @@ let content = ''
       if (entranceDelay) {
         await $.wait(1000 * entranceDelay)
       }
-      let [{ CN_INFO: ENTRANCE_INFO1 = '', isCN = false } = {}, { PROXY_INFO: ENTRANCE_INFO2 = '' } = {}] =
-        await Promise.all([
-          getDirectInfo(ENTRANCE_IP, $.lodash_get(arg, 'DOMESTIC_IPv4')),
-          getProxyInfo(ENTRANCE_IP, $.lodash_get(arg, 'LANDING_IPv4')),
-        ])
+      let [{ CN_INFO: ENTRANCE_INFO1 = '', isCN = false } = {}] = await Promise.all([
+        getDirectInfo(ENTRANCE_IP, $.lodash_get(arg, 'DOMESTIC_IPv4')),
+      ])
+      // ⚠ 本地补丁(2026-10-09)：作者原本还要用 LANDING_IPv4(ip.sb) 把**同一个入口 IP** 再查一遍，
+      //   目的是防"国内接口把国外 IP 解析离谱"。但我们的入口永远是腾讯云成都(国内 IP)，
+      //   第二遍只会多出 位置²/运营商²/组织²/ASN² 四行重复信息，所以直接停掉。
+      //   要恢复：把下面这行删掉、并还原上面 Promise.all 里的 getProxyInfo(ENTRANCE_IP, LANDING_IPv4)。
+      const ENTRANCE_INFO2 = ''
       // 国内接口的国外 IP 解析过于离谱 排除掉
       if (ENTRANCE_INFO1 && isCN) {
         ENTRANCE = `入口: ${maskIP(ENTRANCE_IP) || '-'}\n${maskAddr(ENTRANCE_INFO1)}`
@@ -934,8 +937,18 @@ async function getProxyInfo(ip, provider) {
           '位置:',
           getflag($.lodash_get(body, 'country_code')),
           $.lodash_get(body, 'country'),
-          $.lodash_get(body, 'region'),
-          $.lodash_get(body, 'city'),
+          // ⚠ 本地补丁(2026-10-09)：ip.sb 对 HK 会同时给 region="Sha Tin" 和 city="Shatin"，同一个地名拼两遍。
+          (() => {
+            const r = $.lodash_get(body, 'region') || ''
+            const c = $.lodash_get(body, 'city') || ''
+            if (!c) return r
+            if (!r) return c
+            const nr = r.toLowerCase().replace(/\s/g, '')
+            const nc = c.toLowerCase().replace(/\s/g, '')
+            // 相等、或互为包含（Central And Western/Central、Kwai Tsing/Kwai Tsing District）→ 只留更具体的 city
+            if (nr === nc || nr.includes(nc) || nc.includes(nr)) return c
+            return r + ' ' + c
+          })(),
         ]
           .filter(i => i)
           .join(' '),
